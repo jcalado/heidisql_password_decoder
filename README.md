@@ -5,6 +5,9 @@
 
 A sleek, secure client-side tool to decode passwords from your HeidiSQL connection settings file.
 
+![screenshot](https://github.com/user-attachments/assets/60fe0ca5-0207-4311-8df3-bfe2cb76e479)
+
+
 ## ✨ Features
 
 - **🔒 100% Client-side Processing**: All decoding happens in your browser - no data is ever sent to a server
