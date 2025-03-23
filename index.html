@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeidiSQL Password Decoder</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="app-header">
+            <h1 class="app-title">HeidiSQL Password Decoder</h1>
+            <p class="app-subtitle">Safely decode password entries from your HeidiSQL connection settings file</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-file-import"></i>
+                    Input Settings
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <label class="input-label" for="inputText">
+                        <i class="fas fa-code"></i>
+                        HeidiSQL settings file contents
+                    </label>
+                    <textarea id="inputText" placeholder="Paste your HeidiSQL export text here..."></textarea>
+                </div>
+                <div class="privacy-note">
+                    <i class="fas fa-shield-alt"></i>
+                    <div class="privacy-note-content">
+                        <div class="privacy-note-title">Your data remains private</div>
+                        <p class="privacy-note-text">All processing occurs directly on your device. No data is transmitted or stored elsewhere. Your passwords never leave your machine.</p>
+                    </div>
+                </div>
+                <div class="button-container">
+                    <button id="decodeBtn" class="btn btn-primary">
+                        <i class="fas fa-key"></i>
+                        Decode Passwords
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="results-container" class="results-card">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-unlock-alt"></i>
+                        Decoded Results
+                        <span id="resultCount" class="result-count">0</span>
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <table id="resultTable">
+                        <thead>
+                            <tr>
+                                <th width="60%">Server Name</th>
+                                <th width="40%">Decoded Password</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultBody">
+                        </tbody>
+                    </table>
+                    <div id="noResults" class="no-results">
+                        <i class="fas fa-search"></i>
+                        <div class="no-results-text">
+                            No password entries found in the pasted text. Make sure your export contains lines with "\Password".
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function heidiDecode(hex) {
+            var str = '';
+            var shift = parseInt(hex.substr(-1));
+            hex = hex.substr(0, hex.length - 1);
+            for (var i = 0; i < hex.length; i += 2) 
+                str += String.fromCharCode(parseInt(hex.substr(i, 2), 16) - shift); 
+            return str; 
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Success notification is handled in the click handler
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+            });
+        }
+
+        document.getElementById('decodeBtn').addEventListener('click', function() {
+            const inputText = document.getElementById('inputText').value;
+            const resultsContainer = document.getElementById('results-container');
+            const resultBody = document.getElementById('resultBody');
+            const noResults = document.getElementById('noResults');
+            const resultCount = document.getElementById('resultCount');
+            
+            // Clear previous results
+            resultBody.innerHTML = '';
+            
+            // Find password entries
+            const lines = inputText.split('\n');
+            let foundEntries = 0;
+            
+            for (const line of lines) {
+                if (line.includes('\\Password<|||>')) {
+                    foundEntries++;
+                    
+                    // Split the line to extract server name and encoded password
+                    const parts = line.split('<|||>');
+                    if (parts.length >= 3) {
+                        const serverPath = parts[0].replace('\\Password', '');
+                        const encodedPassword = parts[parts.length - 1].trim();
+                        const decodedPassword = heidiDecode(encodedPassword);
+                        
+                        // Create table row
+                        const row = document.createElement('tr');
+                        row.className = 'fade-in';
+                        
+                        // Server name cell
+                        const serverCell = document.createElement('td');
+                        serverCell.className = 'server-name';
+                        serverCell.innerHTML = `<i class="fas fa-server" style="margin-right: 8px; color: var(--gray);"></i>${serverPath}`;
+                        row.appendChild(serverCell);
+                        
+                        // Password cell with copy button
+                        const passwordCell = document.createElement('td');
+                        passwordCell.className = 'password-cell';
+                        
+                        if (!decodedPassword || decodedPassword.trim() === '') {
+                            // If no password or empty string
+                            const noPasswordSpan = document.createElement('span');
+                            noPasswordSpan.className = 'no-password';
+                            noPasswordSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i> No password saved';
+                            passwordCell.appendChild(noPasswordSpan);
+                        } else {
+                            // Regular password display with copy button
+                            const passwordSpan = document.createElement('span');
+                            passwordSpan.textContent = decodedPassword;
+                            passwordCell.appendChild(passwordSpan);
+                            
+                            const copyBtn = document.createElement('button');
+                            copyBtn.className = 'copy-btn';
+                            copyBtn.innerHTML = '<i class="fas fa-copy"></i> <span>Copy</span>';
+                            
+                            copyBtn.addEventListener('click', function() {
+                                copyToClipboard(decodedPassword);
+                                const btnText = this.querySelector('span');
+                                const btnIcon = this.querySelector('i');
+                                
+                                btnText.textContent = 'Copied!';
+                                btnIcon.className = 'fas fa-check';
+                                this.style.backgroundColor = 'var(--secondary)';
+                                
+                                setTimeout(() => {
+                                    btnText.textContent = 'Copy';
+                                    btnIcon.className = 'fas fa-copy';
+                                    this.style.backgroundColor = '';
+                                }, 1500);
+                            });
+                            
+                            passwordCell.appendChild(copyBtn);
+                        }
+                        
+                        row.appendChild(passwordCell);
+                        resultBody.appendChild(row);
+                    }
+                }
+            }
+            
+            // Update result count
+            resultCount.textContent = foundEntries;
+            
+            // Show/hide elements based on results
+            resultsContainer.classList.add('visible');
+            
+            if (foundEntries > 0) {
+                noResults.style.display = 'none';
+            } else {
+                noResults.style.display = 'flex';
+            }
+            
+            // Scroll to results
+            setTimeout(() => {
+                resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        });
+    </script>
+</body>
+</html>
